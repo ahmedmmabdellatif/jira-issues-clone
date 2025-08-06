@@ -1,0 +1,50 @@
+name: Jira Issues Clone CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:   # allows manual triggering from GitHub UI
+
+jobs:
+  forge-deploy:
+    runs-on: self-hosted   # Runs on your local Actions runner
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Forge CLI
+        run: npm install -g @forge/cli
+
+      - name: Forge CLI Authentication
+        run: |
+          echo "${{ secrets.FORGE_API_TOKEN }}" | forge login --email "${{ secrets.FORGE_EMAIL }}" --no-prompt
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Forge Lint
+        run: forge lint || echo "⚠️ Forge lint found warnings, continuing..."
+
+      - name: Forge Deploy
+        run: forge deploy --environment development
+
+      - name: Forge Install (Confluence)
+        run: forge install --product confluence --site petitpain.atlassian.net --environment development --non-interactive
+
+      - name: Upload deployment logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-logs
+          path: |
+            forge.log
+            .forge/logs/**
+
+      - name: Post status
+        run: echo "✅ Forge app deployed and installed successfully!"
