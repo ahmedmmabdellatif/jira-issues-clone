@@ -1,0 +1,24 @@
+app:
+  # KEEP your existing app id exactly
+  id: YOUR_EXISTING_APP_ID
+
+modules:
+  confluence:macro:
+    - key: jira-issues-clone
+      title: Jira Issues Clone
+      description: Clone of the native "Jira Issues/Filter" macro
+      function: main
+
+functions:
+  main:
+    handler: index.run
+
+runtime:
+  nodejs: 20
+
+permissions:
+  scopes:
+    - read:confluence-content.summary
+    - read:confluence-content.all
+    - search:confluence
+    - read:page:confluence
