@@ -2,13 +2,12 @@ name: Jira Issues Clone CI/CD
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:   # allows manual triggering from GitHub UI
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   forge-deploy:
-    runs-on: self-hosted   # Runs on your local Actions runner
+    runs-on: self-hosted   # your local Actions runner
 
     steps:
       - name: Checkout repository
@@ -20,31 +19,49 @@ jobs:
           node-version: '18'
 
       - name: Install Forge CLI
+        shell: pwsh
         run: npm install -g @forge/cli
 
-      - name: Forge CLI Authentication
+      - name: Authenticate Forge (non-interactive)
+        shell: pwsh
+        env:
+          FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
         run: |
-          echo "${{ secrets.FORGE_API_TOKEN }}" | forge login --email "${{ secrets.FORGE_EMAIL }}" --no-prompt
+          try { forge logout } catch {}
+          forge login --email "$env:FORGE_EMAIL" --api-token "$env:FORGE_API_TOKEN" --no-prompt
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies (if package.json exists)
+        shell: pwsh
+        run: |
+          if (Test-Path package.json) {
+            try { npm ci } catch { npm install }
+          } else {
+            Write-Host "No package.json found. Skipping npm install."
+          }
 
       - name: Forge Lint
-        run: forge lint || echo "⚠️ Forge lint found warnings, continuing..."
+        shell: pwsh
+        run: |
+          try { forge lint } catch { Write-Host "⚠️ Forge lint found issues or warnings; continuing." }
 
-      - name: Forge Deploy
+      - name: Forge Deploy (development)
+        shell: pwsh
         run: forge deploy --environment development
 
-      - name: Forge Install (Confluence)
+      - name: Forge Install to Confluence (development)
+        shell: pwsh
         run: forge install --product confluence --site petitpain.atlassian.net --environment development --non-interactive
 
-      - name: Upload deployment logs
+      - name: Upload Forge logs (if any)
         uses: actions/upload-artifact@v4
         with:
           name: forge-logs
           path: |
-            forge.log
-            .forge/logs/**
+            .forge/**
+            **/forge.log
+          if-no-files-found: ignore
 
-      - name: Post status
-        run: echo "✅ Forge app deployed and installed successfully!"
+      - name: Done
+        shell: pwsh
+        run: echo "✅ Deploy & install completed."
