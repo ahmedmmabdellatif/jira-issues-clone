@@ -5,21 +5,17 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '*/20 * * * *'  # optional: auto-deploy every 20 min so Agent Mode can rely on it
+    - cron: '*/20 * * * *'  # optional auto-deploy so Agent Mode can rely on it
 
 permissions:
   contents: write  # allow committing to docs/progress-log.md
 
-concurrency:
-  group: deploy-install
-  cancel-in-progress: false
-
 jobs:
   forge-deploy:
-    runs-on: windows-latest   # << GitHub-hosted runner
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: pwsh
+        shell: bash
 
     steps:
       - name: Checkout repository
@@ -32,11 +28,6 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Prepare npm (quiet)
-        run: |
-          npm config set fund false
-          npm config set audit false
-
       - name: Install Forge CLI
         run: npm install -g @forge/cli
 
@@ -45,26 +36,25 @@ jobs:
           FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
           FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
         run: |
-          try { forge logout } catch {}
-          forge login --email "$env:FORGE_EMAIL" --token "$env:FORGE_API_TOKEN" --non-interactive
+          forge logout || true
+          forge login --email "${FORGE_EMAIL}" --token "${FORGE_API_TOKEN}" --non-interactive
 
       - name: Install dependencies (ci if lockfile, else install)
         run: |
-          if (Test-Path package.json) {
-            if (Test-Path package-lock.json) {
-              Write-Host "Using npm ci (lockfile present)"
+          if [ -f package.json ]; then
+            if [ -f package-lock.json ]; then
+              echo "Using npm ci (lockfile present)"
               npm ci
-            } else {
-              Write-Host "No lockfile found -> npm install"
+            else
+              echo "No lockfile found -> npm install"
               npm install
-            }
-          } else {
-            Write-Host "No package.json found. Skipping npm install."
-          }
+            fi
+          else
+            echo "No package.json found. Skipping npm install."
+          fi
 
       - name: Forge Lint (non-blocking)
-        run: |
-          try { forge lint } catch { Write-Host "⚠️ forge lint issues; continuing." }
+        run: forge lint || echo "⚠️ forge lint issues; continuing."
 
       - name: Forge Deploy (development)
         run: forge deploy --environment development
@@ -76,14 +66,13 @@ jobs:
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          $ts = (Get-Date).ToString("s")
-          New-Item -ItemType Directory -Force -Path "docs" | Out-Null
-          $line = "[$ts] Deploy+Install success on '${{ github.ref }}' via GitHub-hosted runner. Run: $env:RUN_URL"
-          if (Test-Path "docs/progress-log.md") {
-            Add-Content "docs/progress-log.md" $line
-          } else {
-            Set-Content "docs/progress-log.md" "# Progress Log`n$line"
-          }
+          ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          mkdir -p docs
+          if [ -f docs/progress-log.md ]; then
+            echo "[$ts] Deploy+Install success on '${GITHUB_REF_NAME}' via GitHub-hosted ubuntu. Run: $RUN_URL" >> docs/progress-log.md
+          else
+            printf "# Progress Log\n[$ts] Deploy+Install success on '%s' via GitHub-hosted ubuntu. Run: %s\n" "${GITHUB_REF_NAME}" "$RUN_URL" > docs/progress-log.md
+          fi
           git config user.email "actions@github.com"
           git config user.name "github-actions[bot]"
           git add docs/progress-log.md
