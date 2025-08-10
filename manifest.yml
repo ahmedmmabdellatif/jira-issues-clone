@@ -1,16 +1,18 @@
+app:
+  id: ari:cloud:ecosystem::app/f15183e3-194b-49f1-9dff-71cf5377ad84
+  runtime:
+    name: nodejs22.x
+
 modules:
   macro:
     - key: jira-issues-clone
-      resource: main
-      render: native
       title: Jira Issues Clone
-      description: Minimal macro scaffolding for Jira Issues Clone (modern UI Kit)
+      description: Minimal macro scaffolding (modern UI Kit)
+      render: native
+      resource: main
       categories:
         - reporting
+
 resources:
   - key: main
-    path: src/frontend/index.jsx
-app:
-  id: f15183e3-194b-49f1-9dff-71cf5377ad84
-runtime:
-  name: nodejs22.x
+    path: src/index.jsx
