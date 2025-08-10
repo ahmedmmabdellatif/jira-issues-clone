@@ -1,79 +1,61 @@
-name: Jira Issues Clone CI/CD
+name: Forge OJMF Automation Agent
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
-permissions:
-  contents: write  # needed for the progress log commit
-
 jobs:
   forge-deploy:
     runs-on: ubuntu-latest
     env:
-      # CI auth: DO NOT run `forge login` in CI. The CLI reads these directly.
       FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
       FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
-    defaults:
-      run:
-        shell: bash
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Node.js 22 (Forge CLI requires >=20)
+      - name: Set up Node.js (22.x)
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Install Forge CLI
-        run: npm install -g @forge/cli@latest
+        run: npm install -g @forge/cli
 
-      # Preseed analytics so the CLI never prompts
-      - name: Disable Forge analytics (non-interactive)
+      - name: Disable Forge analytics (non-TTY safe)
         run: forge settings set usage-analytics false
 
-      - name: Install dependencies (ci if lockfile, else install)
+      - name: Install dependencies
         run: |
-          if [ -f package.json ]; then
-            if [ -f package-lock.json ]; then
-              echo "Using npm ci (lockfile present)"; npm ci
-            else
-              echo "No lockfile found -> npm install"; npm install
-            fi
+          if [ -f package-lock.json ]; then
+            npm ci
           else
-            echo "No package.json found. Skipping npm install."
+            npm install
           fi
 
       - name: Forge Lint (non-blocking)
-        run: forge lint || echo "⚠️ forge lint issues; continuing."
+        run: forge lint || echo "lint warnings - proceeding"
 
-      - name: Forge Deploy (development)
-        run: forge deploy --environment development
+      - name: Deploy (development)
+        run: forge deploy --environment development --non-interactive
 
-      - name: Forge Install to Confluence (development)
-        run: forge install --product confluence --site petitpain.atlassian.net --environment development --non-interactive --confirm-scopes
+      - name: Install to Confluence (development)
+        run: >
+          forge install
+          --product confluence
+          --site petitpain.atlassian.net
+          --environment development
+          --confirm-scopes
+          --non-interactive
+          --upgrade
 
-      - name: Append progress log (repo memory for Agent Mode)
-        env:
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          mkdir -p docs
-          if [ -f docs/progress-log.md ]; then
-            echo "[$ts] Deploy+Install attempted on '${GITHUB_REF_NAME}' via GH-hosted ubuntu. Run: $RUN_URL" >> docs/progress-log.md
-          else
-            printf "# Progress Log\n[$ts] Deploy+Install attempted on '%s' via GH-hosted ubuntu. Run: %s\n" "${GITHUB_REF_NAME}" "$RUN_URL" > docs/progress-log.md
-          fi
-          git config user.email "actions@github.com"
-          git config user.name "github-actions[bot]"
-          git add docs/progress-log.md
-          git commit -m "CI: log deploy/install [$ts]" || echo "No changes to commit"
-          git push
-
-      - name: Done
-        run: echo "✅ Deploy & install completed."
+      - name: Upload Forge logs (if any)
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-logs
+          path: |
+            .forge/**
+            **/forge.log
+          if-no-files-found: ignore
