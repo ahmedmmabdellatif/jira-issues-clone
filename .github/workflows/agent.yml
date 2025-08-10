@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: powershell  # <-- use Windows PowerShell, not pwsh
+
 jobs:
   forge-deploy:
     runs-on: self-hosted
@@ -18,12 +22,15 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Prepare npm (quiet)
+        run: |
+          npm config set fund false
+          npm config set audit false
+
       - name: Install Forge CLI
-        shell: pwsh
         run: npm install -g @forge/cli
 
       - name: Authenticate Forge (non-interactive)
-        shell: pwsh
         env:
           FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
           FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
@@ -32,7 +39,6 @@ jobs:
           forge login --email "$env:FORGE_EMAIL" --token "$env:FORGE_API_TOKEN" --non-interactive
 
       - name: Install dependencies (if package.json exists)
-        shell: pwsh
         run: |
           if (Test-Path package.json) {
             try { npm ci } catch { npm install }
@@ -41,16 +47,13 @@ jobs:
           }
 
       - name: Forge Lint
-        shell: pwsh
         run: |
           try { forge lint } catch { Write-Host "⚠️ Forge lint found issues or warnings; continuing." }
 
       - name: Forge Deploy (development)
-        shell: pwsh
         run: forge deploy --environment development
 
       - name: Forge Install to Confluence (development)
-        shell: pwsh
         run: forge install --product confluence --site petitpain.atlassian.net --environment development --non-interactive --confirm-scopes
 
       - name: Upload Forge logs (if any)
@@ -63,5 +66,4 @@ jobs:
           if-no-files-found: ignore
 
       - name: Done
-        shell: pwsh
         run: echo "✅ Deploy & install completed."
