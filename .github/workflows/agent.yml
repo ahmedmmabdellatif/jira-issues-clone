@@ -5,22 +5,21 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '*/10 * * * *'  # keep schedule for Agent Mode; runs won't cancel each other now
+    - cron: '*/20 * * * *'  # optional: auto-deploy every 20 min so Agent Mode can rely on it
 
 permissions:
-  contents: write  # allow the workflow to commit to docs/progress-log.md
+  contents: write  # allow committing to docs/progress-log.md
 
 concurrency:
   group: deploy-install
-  cancel-in-progress: false  # <-- stop canceling in-progress runs
-
-defaults:
-  run:
-    shell: powershell
+  cancel-in-progress: false
 
 jobs:
   forge-deploy:
-    runs-on: self-hosted
+    runs-on: windows-latest   # << GitHub-hosted runner
+    defaults:
+      run:
+        shell: pwsh
 
     steps:
       - name: Checkout repository
@@ -73,22 +72,13 @@ jobs:
       - name: Forge Install to Confluence (development)
         run: forge install --product confluence --site petitpain.atlassian.net --environment development --non-interactive --confirm-scopes
 
-      - name: Upload Forge logs (if any)
-        uses: actions/upload-artifact@v4
-        with:
-          name: forge-logs
-          path: |
-            .forge/**
-            **/forge.log
-          if-no-files-found: ignore
-
       - name: Append progress log (repo memory for Agent Mode)
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           $ts = (Get-Date).ToString("s")
           New-Item -ItemType Directory -Force -Path "docs" | Out-Null
-          $line = "[$ts] Deploy+Install success on '${{ github.ref }}' by runner '${env:ComputerName}'. Run: $env:RUN_URL"
+          $line = "[$ts] Deploy+Install success on '${{ github.ref }}' via GitHub-hosted runner. Run: $env:RUN_URL"
           if (Test-Path "docs/progress-log.md") {
             Add-Content "docs/progress-log.md" $line
           } else {
