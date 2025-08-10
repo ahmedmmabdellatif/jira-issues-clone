@@ -5,11 +5,14 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '*/10 * * * *'  # run every 10 minutes so Agent Mode can rely on it
+    - cron: '*/10 * * * *'  # keep schedule for Agent Mode; runs won't cancel each other now
+
+permissions:
+  contents: write  # allow the workflow to commit to docs/progress-log.md
 
 concurrency:
   group: deploy-install
-  cancel-in-progress: true
+  cancel-in-progress: false  # <-- stop canceling in-progress runs
 
 defaults:
   run:
@@ -23,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # needed for auto-commit later
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -98,4 +101,4 @@ jobs:
           git push
 
       - name: Done
-        run: echo "✅ Deploy & install completed (or scheduled)."
+        run: echo "✅ Deploy & install completed."
