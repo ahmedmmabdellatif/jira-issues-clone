@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # needed to append to docs/progress-log.md
+  contents: write
 
 jobs:
   forge-deploy:
@@ -21,15 +21,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
+      - name: Set up Node.js 22 (required by Forge CLI)
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Install Forge CLI
         run: npm install -g @forge/cli@latest
 
-      # IMPORTANT: preseed analytics to avoid any TTY prompt
       - name: Set Forge analytics consent (non-interactive)
         run: forge settings set usage-analytics false
 
@@ -43,11 +42,9 @@ jobs:
         run: |
           if [ -f package.json ]; then
             if [ -f package-lock.json ]; then
-              echo "Using npm ci (lockfile present)"
-              npm ci
+              echo "Using npm ci (lockfile present)"; npm ci
             else
-              echo "No lockfile found -> npm install"
-              npm install
+              echo "No lockfile found -> npm install"; npm install
             fi
           else
             echo "No package.json found. Skipping npm install."
