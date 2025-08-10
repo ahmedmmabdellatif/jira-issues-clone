@@ -5,24 +5,32 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   forge-deploy:
     runs-on: ubuntu-latest
     env:
       FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
       FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Node.js (22.x)
+      - name: Set up Node.js (22.x required by Forge CLI)
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Install Forge CLI
-        run: npm install -g @forge/cli
+        run: npm install -g @forge/cli@latest
 
       - name: Disable Forge analytics (non-TTY safe)
         run: forge settings set usage-analytics false
@@ -44,12 +52,11 @@ jobs:
       - name: Install to Confluence (development)
         run: >
           forge install
-          --product confluence
+          --product Confluence
           --site petitpain.atlassian.net
           --environment development
           --confirm-scopes
           --non-interactive
-          --upgrade
 
       - name: Upload Forge logs (if any)
         uses: actions/upload-artifact@v4
