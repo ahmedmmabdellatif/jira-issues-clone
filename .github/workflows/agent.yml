@@ -6,11 +6,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write  # needed for the progress log commit
 
 jobs:
   forge-deploy:
     runs-on: ubuntu-latest
+    env:
+      # CI auth: DO NOT run `forge login` in CI. The CLI reads these directly.
+      FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+      FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
     defaults:
       run:
         shell: bash
@@ -21,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js 22 (required by Forge CLI)
+      - name: Set up Node.js 22 (Forge CLI requires >=20)
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -29,14 +33,9 @@ jobs:
       - name: Install Forge CLI
         run: npm install -g @forge/cli@latest
 
-      - name: Set Forge analytics consent (non-interactive)
+      # Preseed analytics so the CLI never prompts
+      - name: Disable Forge analytics (non-interactive)
         run: forge settings set usage-analytics false
-
-      - name: Authenticate Forge (non-interactive)
-        env:
-          FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
-          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
-        run: forge login --email "${FORGE_EMAIL}" --token "${FORGE_API_TOKEN}" --non-interactive
 
       - name: Install dependencies (ci if lockfile, else install)
         run: |
