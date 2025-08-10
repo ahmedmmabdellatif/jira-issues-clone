@@ -4,11 +4,9 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-  schedule:
-    - cron: '*/20 * * * *'  # optional: auto-deploy so Agent Mode can rely on it
 
 permissions:
-  contents: write  # allow committing to docs/progress-log.md
+  contents: write  # needed to append to docs/progress-log.md
 
 jobs:
   forge-deploy:
@@ -29,19 +27,17 @@ jobs:
           node-version: '18'
 
       - name: Install Forge CLI
-        run: npm install -g @forge/cli
+        run: npm install -g @forge/cli@latest
 
-      # <<< FIX: set analytics consent BEFORE any other forge command >>>
+      # IMPORTANT: preseed analytics to avoid any TTY prompt
       - name: Set Forge analytics consent (non-interactive)
-        run: |
-          forge settings set usage-analytics false
+        run: forge settings set usage-analytics false
 
       - name: Authenticate Forge (non-interactive)
         env:
           FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
           FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
-        run: |
-          forge login --email "${FORGE_EMAIL}" --token "${FORGE_API_TOKEN}" --non-interactive
+        run: forge login --email "${FORGE_EMAIL}" --token "${FORGE_API_TOKEN}" --non-interactive
 
       - name: Install dependencies (ci if lockfile, else install)
         run: |
