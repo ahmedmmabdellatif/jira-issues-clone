@@ -4,10 +4,16 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'  # run every 10 minutes so Agent Mode can rely on it
+
+concurrency:
+  group: deploy-install
+  cancel-in-progress: true
 
 defaults:
   run:
-    shell: powershell  # <-- use Windows PowerShell, not pwsh
+    shell: powershell
 
 jobs:
   forge-deploy:
@@ -16,6 +22,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for auto-commit later
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -38,17 +46,23 @@ jobs:
           try { forge logout } catch {}
           forge login --email "$env:FORGE_EMAIL" --token "$env:FORGE_API_TOKEN" --non-interactive
 
-      - name: Install dependencies (if package.json exists)
+      - name: Install dependencies (ci if lockfile, else install)
         run: |
           if (Test-Path package.json) {
-            try { npm ci } catch { npm install }
+            if (Test-Path package-lock.json) {
+              Write-Host "Using npm ci (lockfile present)"
+              npm ci
+            } else {
+              Write-Host "No lockfile found -> npm install"
+              npm install
+            }
           } else {
             Write-Host "No package.json found. Skipping npm install."
           }
 
-      - name: Forge Lint
+      - name: Forge Lint (non-blocking)
         run: |
-          try { forge lint } catch { Write-Host "⚠️ Forge lint found issues or warnings; continuing." }
+          try { forge lint } catch { Write-Host "⚠️ forge lint issues; continuing." }
 
       - name: Forge Deploy (development)
         run: forge deploy --environment development
@@ -65,5 +79,23 @@ jobs:
             **/forge.log
           if-no-files-found: ignore
 
+      - name: Append progress log (repo memory for Agent Mode)
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          $ts = (Get-Date).ToString("s")
+          New-Item -ItemType Directory -Force -Path "docs" | Out-Null
+          $line = "[$ts] Deploy+Install success on '${{ github.ref }}' by runner '${env:ComputerName}'. Run: $env:RUN_URL"
+          if (Test-Path "docs/progress-log.md") {
+            Add-Content "docs/progress-log.md" $line
+          } else {
+            Set-Content "docs/progress-log.md" "# Progress Log`n$line"
+          }
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git add docs/progress-log.md
+          git commit -m "CI: log deploy/install [$ts]" || echo "No changes to commit"
+          git push
+
       - name: Done
-        run: echo "✅ Deploy & install completed."
+        run: echo "✅ Deploy & install completed (or scheduled)."
