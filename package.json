@@ -2,15 +2,11 @@
   "name": "jira-issues-clone",
   "version": "0.1.0",
   "private": true,
-  "description": "Forge macro that will replicate the native Jira Issues/Filter macro",
-  "main": "src/index.jsx",
-  "license": "UNLICENSED",
   "scripts": {
-    "build": "echo \"No build step needed for UI Kit\"",
-    "lint": "echo \"No custom lint configured\""
+    "lint": "forge lint",
+    "deploy:dev": "forge deploy --environment development --non-interactive"
   },
   "dependencies": {
-    "@forge/api": "^3.7.0",
-    "@forge/ui": "^1.14.0"
+    "@forge/react": "^11.2.6"
   }
 }
