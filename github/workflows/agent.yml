@@ -7,7 +7,7 @@ on:
 
 jobs:
   forge-deploy:
-    runs-on: self-hosted   # your local Actions runner
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
@@ -29,7 +29,7 @@ jobs:
           FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
         run: |
           try { forge logout } catch {}
-          forge login --email "$env:FORGE_EMAIL" --api-token "$env:FORGE_API_TOKEN" --no-prompt
+          forge login --email "$env:FORGE_EMAIL" --token "$env:FORGE_API_TOKEN" --non-interactive
 
       - name: Install dependencies (if package.json exists)
         shell: pwsh
@@ -51,7 +51,7 @@ jobs:
 
       - name: Forge Install to Confluence (development)
         shell: pwsh
-        run: forge install --product confluence --site petitpain.atlassian.net --environment development --non-interactive
+        run: forge install --product confluence --site petitpain.atlassian.net --environment development --non-interactive --confirm-scopes
 
       - name: Upload Forge logs (if any)
         uses: actions/upload-artifact@v4
