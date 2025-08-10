@@ -1,6 +1,6 @@
 app:
   # KEEP your existing app id exactly
-  id: YOUR_EXISTING_APP_ID
+  id: f15183e3-194b-49f1-9dff-71cf5377ad84
 
 modules:
   confluence:macro:
